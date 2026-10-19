@@ -18,6 +18,7 @@ export async function chat(model: string, messages: Msg[]): Promise<string> {
       messages,
       stream: false,
       format: "json",
+      think: false,
       options: { temperature: 0.1 },
     }),
     signal: AbortSignal.timeout(180_000),
