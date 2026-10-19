@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payload Doctor</title>
+<style>
+  :root {
+    --paper: #eef1f4;
+    --panel: #ffffff;
+    --ink: #16212b;
+    --muted: #5b6b7a;
+    --line: #cdd5dc;
+    --accent: #0b6e6e;
+    --accent-ink: #ffffff;
+    --warn: #a8480f;
+    --ok: #1c7a3f;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #11181f; --panel: #19232d; --ink: #e6edf3; --muted: #93a4b4;
+      --line: #2c3a47; --accent: #3fb6b0; --accent-ink: #08201f; --warn: #f0975a; --ok: #5fcf8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+  header { padding: 20px 24px 8px; max-width: 1200px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+  .status { margin-top: 4px; color: var(--muted); font-size: 0.9rem; display: flex; gap: 8px; align-items: center; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--warn); }
+  main { max-width: 1200px; margin: 0 auto; padding: 12px 24px 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+  label { display: block; font-weight: 600; font-size: 0.9rem; margin: 14px 0 4px; }
+  label:first-child { margin-top: 0; }
+  textarea, input, select {
+    width: 100%; font: inherit; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+  }
+  textarea { font-family: var(--mono); font-size: 0.85rem; resize: vertical; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .row.split > * { flex: 1; min-width: 140px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 9px 16px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: 0.6; cursor: progress; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; color: var(--muted); }
+  .check input { width: auto; }
+  .examples { font-size: 0.85rem; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .examples button { padding: 4px 10px; font-size: 0.85rem; }
+  .empty { color: var(--muted); }
+  .result h2 { margin: 0 0 2px; font-size: 1.05rem; }
+  .result p, .result li { margin: 4px 0 12px; }
+  .result ul { padding-left: 20px; margin: 4px 0 12px; }
+  .fix { font-family: var(--mono); font-size: 0.85rem; white-space: pre-wrap; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+  .meta { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 0.8rem; border: 1px solid currentColor; }
+  .badge.high { color: var(--ok); } .badge.medium { color: var(--accent); } .badge.low { color: var(--warn); }
+  .error { color: var(--warn); font-weight: 600; }
+  details { margin-top: 10px; }
+  details pre { font-family: var(--mono); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Payload Doctor</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">Checking local model…</span></div>
+</header>
+
+<main>
+  <section aria-label="Input">
+    <div class="examples">Try an example:
+      <button type="button" data-ex="0">Bad date, missing field</button>
+      <button type="button" data-ex="1">SOAP namespace</button>
+    </div>
+
+    <label for="context">What are you connecting? (optional)</label>
+    <input id="context" maxlength="500" placeholder="e.g. S/4HANA to a REST API, IDoc to JSON">
+
+    <label for="error">Error message</label>
+    <textarea id="error" rows="3" placeholder="Paste the error, status code, or log line"></textarea>
+
+    <label for="payload">Payload (JSON, XML, or headers)</label>
+    <textarea id="payload" rows="12" placeholder="Paste the payload that failed"></textarea>
+
+    <div class="row split">
+      <div>
+        <label for="model" style="margin-top:0">Model</label>
+        <select id="model"></select>
+      </div>
+    </div>
+    <div class="row">
+      <button class="primary" id="go" type="button">Diagnose</button>
+      <label class="check" style="margin:0"><input type="checkbox" id="redact" checked> Mask emails, tokens, and IDs before the model sees them</label>
+    </div>
+  </section>
+
+  <section class="result" aria-live="polite" id="out">
+    <p class="empty">Paste a failing payload and its error, then select Diagnose. The answer appears here.</p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const examples = [
+  {
+    context: "REST API order intake",
+    error: "400 Bad Request: field 'deliveryDate' must match yyyy-MM-dd; field 'customerId' is required",
+    payload: JSON.stringify({ orderNo: "SO-1001", deliveryDate: "19/10/2026", customerName: "Acme Foods", contact: "buyer@acme-foods.com", lines: [{ sku: "A-100", qty: 5 }] }, null, 2),
+  },
+  {
+    context: "SOAP call to SAP RFC",
+    error: "No matching element found: expected {urn:sap-com:document:sap:rfc:functions}BAPI_ACC_DOCUMENT_POST",
+    payload: '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:sap-com:document:sap:soap:functions:mc-style">\n  <soapenv:Body>\n    <urn:BAPI_ACC_DOCUMENT_POST>\n      <DOCUMENTHEADER><COMP_CODE>1000</COMP_CODE></DOCUMENTHEADER>\n    </urn:BAPI_ACC_DOCUMENT_POST>\n  </soapenv:Body>\n</soapenv:Envelope>',
+  },
+];
+
+document.querySelectorAll("[data-ex]").forEach((b) =>
+  b.addEventListener("click", () => {
+    const ex = examples[Number(b.dataset.ex)];
+    $("context").value = ex.context; $("error").value = ex.error; $("payload").value = ex.payload;
+  }));
+
+async function loadModels() {
+  try {
+    const r = await fetch("/api/models");
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    const sel = $("model");
+    const list = j.models.length ? j.models : [j.default];
+    list.forEach((m) => { const o = document.createElement("option"); o.value = o.textContent = m; sel.appendChild(o); });
+    if (list.includes(j.default)) sel.value = j.default;
+    $("dot").className = "dot ok";
+    $("status").textContent = "Local model ready. Nothing you paste leaves this computer.";
+    if (!j.models.length) $("status").textContent = "Ollama is running but has no models. Run: ollama pull " + j.default;
+  } catch (e) {
+    $("dot").className = "dot bad";
+    $("status").textContent = e.message || "Cannot reach Ollama.";
+  }
+}
+
+function el(tag, text, cls) {
+  const n = document.createElement(tag);
+  if (text !== undefined) n.textContent = text;
+  if (cls) n.className = cls;
+  return n;
+}
+
+function render(j) {
+  const out = $("out");
+  out.replaceChildren();
+  const d = j.diagnosis;
+  out.append(el("h2", "What happened"), el("p", d.summary));
+  out.append(el("h2", "Likely cause"), el("p", d.likelyCause));
+  out.append(el("h2", "Suggested fix"), el("div", d.suggestedFix, "fix"));
+  if (d.checks.length) {
+    out.append(el("h2", "Check next"));
+    const ul = el("ul");
+    d.checks.forEach((c) => ul.append(el("li", c)));
+    out.append(ul);
+  }
+  const meta = el("div", "", "meta");
+  const badge = el("span", "Confidence: " + d.confidence, "badge " + d.confidence);
+  meta.append(badge, document.createTextNode(`  ${j.model}, ${(j.ms / 1000).toFixed(1)}s` + (j.attempts > 1 ? `, ${j.attempts} attempts` : "")));
+  out.append(meta);
+
+  const counts = Object.entries(j.redactions).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(", ");
+  const det = el("details");
+  det.append(el("summary", counts ? `Masked before sending to the model: ${counts}` : "What the model received"));
+  det.append(el("pre", `Error:\n${j.sentToModel.error}\n\nPayload:\n${j.sentToModel.payload}`));
+  out.append(det);
+}
+
+$("go").addEventListener("click", async () => {
+  const payload = $("payload").value.trim();
+  if (!payload) { $("payload").focus(); return; }
+  $("go").disabled = true; $("go").textContent = "Diagnosing…";
+  try {
+    const r = await fetch("/api/diagnose", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload, error: $("error").value, context: $("context").value, model: $("model").value, redact: $("redact").checked }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Request failed");
+    render(j);
+  } catch (e) {
+    const out = $("out"); out.replaceChildren(el("p", e.message, "error"));
+  } finally {
+    $("go").disabled = false; $("go").textContent = "Diagnose";
+  }
+});
+
+loadModels();
+</script>
+</body>
+</html>

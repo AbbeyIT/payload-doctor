@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Wrong date format + missing field",
+    "context": "REST API order intake",
+    "error": "400 Bad Request: field 'deliveryDate' must match yyyy-MM-dd; field 'customerId' is required",
+    "payload": "{\"orderNo\":\"SO-1001\",\"deliveryDate\":\"19/10/2026\",\"customerName\":\"Acme Foods\",\"lines\":[{\"sku\":\"A-100\",\"qty\":5}]}",
+    "expect": ["deliverydate", "customerid"]
+  },
+  {
+    "name": "Invalid JSON (trailing comma)",
+    "context": "Webhook receiver",
+    "error": "SyntaxError: Unexpected token } in JSON at position 52",
+    "payload": "{\"event\":\"shipment.updated\",\"id\":\"S-77\",\"status\":\"delivered\",}",
+    "expect": ["comma"]
+  },
+  {
+    "name": "SOAP namespace mismatch",
+    "context": "SOAP call to SAP RFC",
+    "error": "No matching element found: expected {urn:sap-com:document:sap:rfc:functions}BAPI_ACC_DOCUMENT_POST",
+    "payload": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:urn=\"urn:sap-com:document:sap:soap:functions:mc-style\"><soapenv:Body><urn:BAPI_ACC_DOCUMENT_POST><DOCUMENTHEADER><COMP_CODE>1000</COMP_CODE></DOCUMENTHEADER></urn:BAPI_ACC_DOCUMENT_POST></soapenv:Body></soapenv:Envelope>",
+    "expect": ["namespace", "urn:sap-com:document:sap:rfc:functions"]
+  },
+  {
+    "name": "Expired auth token",
+    "context": "API gateway",
+    "error": "401 Unauthorized: invalid_token (the access token expired)",
+    "payload": "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDB9.abcDEF123456xyz",
+    "expect": ["expired", "refresh"]
+  },
+  {
+    "name": "Type mismatch (string instead of integer)",
+    "context": "User registration endpoint",
+    "error": "422 Unprocessable Entity: field 'age' must be of type integer, got string",
+    "payload": "{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"age\":\"twenty-five\"}",
+    "expect": ["age", "integer", "type"]
+  },
+  {
+    "name": "Payload too large",
+    "context": "File upload API",
+    "error": "413 Payload Too Large: maximum allowed size is 5MB, received 12.4MB",
+    "payload": "POST /api/upload HTTP/1.1\r\nContent-Length: 13002342\r\n\r\n[BINARY DATA...]",
+    "expect": ["payload", "size", "limit", "5mb"]
+  },
+  {
+    "name": "Unsupported Media Type (missing Content-Type)",
+    "context": "GraphQL query endpoint",
+    "error": "415 Unsupported Media Type: Content-Type header must be application/json",
+    "payload": "query { viewer { name email } }",
+    "expect": ["content-type", "application/json", "media type"]
+  },
+  {
+    "name": "Upstream gateway timeout",
+    "context": "Microservice payment router",
+    "error": "504 Gateway Timeout: upstream service 'billing-service' failed to respond within 5000ms",
+    "payload": "{\"transactionId\":\"TX-99881\",\"amount\":150.00,\"currency\":\"USD\"}",
+    "expect": ["timeout", "upstream", "billing-service"]
+  },
+  {
+    "name": "Rate limit exceeded",
+    "context": "Public weather API",
+    "error": "429 Too Many Requests: rate limit of 60 requests per minute exceeded. Retry after 35 seconds.",
+    "payload": "GET /v1/forecast?city=London HTTP/1.1\r\nX-RateLimit-Remaining: 0",
+    "expect": ["rate limit", "too many requests", "retry after"]
+  },
+  {
+    "name": "Malformed URL-encoded form data",
+    "context": "OAuth2 token exchange",
+    "error": "400 Bad Request: missing '=' character in body parameter at index 14",
+    "payload": "grant_type_authorization_code&client_id=client_abc123&code=xyz789",
+    "expect": ["grant_type", "url-encoded", "parameter"]
+  }
+]
